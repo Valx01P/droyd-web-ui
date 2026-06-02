@@ -1,4 +1,6 @@
 .hero {
+  display: grid;
+  grid-template-rows: auto minmax(28rem, 1fr) auto auto;
   min-height: 92svh;
   overflow: hidden;
   position: relative;
@@ -29,11 +31,8 @@
   display: flex;
   gap: clamp(1rem, 3vw, 3rem);
   justify-content: space-between;
-  left: 0;
   padding: clamp(1.25rem, 3vw, 2.25rem) clamp(1rem, 5vw, 4.5rem);
-  position: absolute;
-  right: 0;
-  top: 0;
+  position: relative;
   z-index: 5;
 }
 
@@ -71,8 +70,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 92svh;
-  padding: clamp(7rem, 13vw, 11rem) clamp(1rem, 5vw, 4.5rem) clamp(5rem, 10vw, 7.5rem);
+  min-height: 0;
+  padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 5vw, 4.5rem) clamp(2.5rem, 6vw, 5rem);
   position: relative;
   width: min(100%, 104rem);
   z-index: 4;
@@ -157,11 +156,10 @@
 }
 
 .meter {
-  bottom: clamp(1rem, 3vw, 2.5rem);
   display: grid;
   gap: 0.6rem;
-  left: clamp(1rem, 5vw, 4.5rem);
-  position: absolute;
+  margin: 0 clamp(1rem, 5vw, 4.5rem) clamp(1rem, 2.5vw, 1.5rem);
+  position: relative;
   width: min(30rem, calc(100% - 2rem));
   z-index: 4;
 }
