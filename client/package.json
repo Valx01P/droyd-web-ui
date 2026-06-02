@@ -5,18 +5,32 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run build",
+    "visual:check": "node scripts/visual-check.js",
+    "agent:init": "node ../job/scripts/droyd-site-orchestrator.js init",
+    "agent:start": "node ../job/scripts/droyd-site-orchestrator.js start",
+    "agent:monitor": "node ../job/scripts/droyd-site-orchestrator.js monitor",
+    "agent:status": "node ../job/scripts/droyd-site-orchestrator.js status",
+    "agent:review": "node ../job/scripts/droyd-site-orchestrator.js review",
+    "agent:consensus": "node ../job/scripts/droyd-site-orchestrator.js consensus",
+    "agent:stop": "node ../job/scripts/droyd-site-orchestrator.js stop"
   },
   "dependencies": {
+    "gsap": "^3.15.0",
     "next": "16.2.7",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "three": "^0.184.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.184.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

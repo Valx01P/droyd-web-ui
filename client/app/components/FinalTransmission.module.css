@@ -1,0 +1,72 @@
+.section {
+  min-height: 72svh;
+  padding: clamp(4rem, 9vw, 9rem) clamp(1rem, 5vw, 4.5rem);
+  position: relative;
+}
+
+.inner {
+  align-items: end;
+  display: grid;
+  gap: clamp(2rem, 5vw, 5rem);
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.7fr);
+  margin: 0 auto;
+  max-width: 86rem;
+}
+
+.eyebrow,
+.code {
+  color: var(--brass);
+  font-family: var(--font-tech), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.heading {
+  color: var(--paper);
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(3.4rem, 10vw, 9rem);
+  font-weight: 700;
+  line-height: 0.84;
+  margin: 1rem 0 1.35rem;
+  max-width: 9ch;
+  text-transform: uppercase;
+}
+
+.copy {
+  color: rgb(246 239 228 / 0.72);
+  font-size: clamp(1rem, 1.5vw, 1.16rem);
+  line-height: 1.75;
+  margin: 0;
+  max-width: 42rem;
+}
+
+.terminal {
+  background: rgb(3 3 4 / 0.78);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  gap: 0.8rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.code {
+  color: rgb(111 227 224 / 0.8);
+  display: block;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
+.signal {
+  background: linear-gradient(90deg, var(--signal), var(--brass), var(--cyan));
+  height: 2px;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .inner {
+    grid-template-columns: 1fr;
+  }
+}

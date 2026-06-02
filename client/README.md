@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Droyd Web UI
+
+A cinematic Next.js site for Droyd, a noir robot-origin story about a machine, a mad scientist, and a buried case file coming back online.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the app:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run verify
+```
 
-## Learn More
+This runs TypeScript checking and a production build.
 
-To learn more about Next.js, take a look at the following resources:
+## Agentic Workflow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The project includes a headless Codex workflow under `../job`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run agent:init
+npm run agent:start -- --max-active 3 --target-batches 2
+npm run agent:status
+npm run agent:review
+npm run agent:consensus
+npm run agent:stop
+```
 
-## Deploy on Vercel
+Read `../job/HUMAN_START.md` and `../job/SITE_WORKFLOW.md` before launching a long run.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Creative Direction
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Movie trailer reveal, not a landing page.
+- Dark noir palette with brass, signal red, cyan electronics, smoke, film grain, and practical evidence surfaces.
+- Motion should feel cinematic and useful. Every heavy effect needs a reduced-motion path and a performance check.
+- Visual work should preserve the supplied `droyd.mp4` as the hero anchor unless a stronger production asset is added.

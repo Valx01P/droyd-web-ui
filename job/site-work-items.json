@@ -1,0 +1,75 @@
+[
+  {
+    "id": "hero-trailer",
+    "phase": "experience",
+    "title": "Hero trailer and first viewport",
+    "files": [
+      "client/app/components/HeroTrailer.tsx",
+      "client/app/components/HeroTrailer.module.css",
+      "client/public/droyd.mp4"
+    ],
+    "brief": "Push the first viewport toward a premium movie teaser. Improve composition, typography, video treatment, copy tension, responsive framing, and the sense that the next section is just visible below the fold.",
+    "acceptance": [
+      "Hero still says \"He's back.\" or a stronger teaser variant with the same reveal energy.",
+      "Video remains the dominant first-viewport asset and does not look like a small preview card.",
+      "Text remains legible on mobile and desktop without overlapping controls or the video focal point.",
+      "No starter Next.js, Vercel, or generic template language is introduced."
+    ]
+  },
+  {
+    "id": "shader-motion",
+    "phase": "effects",
+    "title": "OpenGL shader and GSAP motion pass",
+    "files": [
+      "client/app/components/NoirShader.tsx",
+      "client/app/components/NoirShader.module.css",
+      "client/app/components/SiteMotion.tsx"
+    ],
+    "brief": "Make the WebGL and GSAP layer feel cinematic without tanking performance. Add or refine shader atmosphere, scroll-linked movement, pointer reaction, reveal timing, and reduced-motion behavior.",
+    "acceptance": [
+      "Shader canvas renders nonblank on desktop and mobile.",
+      "Animations respect prefers-reduced-motion.",
+      "No animation causes layout shift, text overlap, or blocked interactions.",
+      "Client-side code cleans up event listeners, animation frames, GSAP contexts, and WebGL resources."
+    ]
+  },
+  {
+    "id": "origin-story",
+    "phase": "narrative",
+    "title": "Origin story and character mythology",
+    "files": [
+      "client/app/components/OriginDossier.tsx",
+      "client/app/components/OriginDossier.module.css",
+      "client/app/components/LabEvidence.tsx",
+      "client/app/components/LabEvidence.module.css",
+      "client/app/components/FinalTransmission.tsx",
+      "client/app/components/FinalTransmission.module.css"
+    ],
+    "brief": "Deepen Droyd, the mad scientist, and the noir mythology. Improve the story beats, section rhythm, evidence motifs, and emotional stakes while keeping copy sharp and trailer-like.",
+    "acceptance": [
+      "Droyd and the mad scientist both feel specific, memorable, and connected.",
+      "Copy is cinematic and concise, not explanatory marketing filler.",
+      "Sections scan well on mobile and desktop.",
+      "The page still feels like an interactive film reveal, not documentation."
+    ]
+  },
+  {
+    "id": "systems-polish",
+    "phase": "quality",
+    "title": "Responsive, accessibility, and production polish",
+    "files": [
+      "client/app/globals.css",
+      "client/app/layout.tsx",
+      "client/app/page.tsx",
+      "client/README.md",
+      "client/AGENTS.md"
+    ],
+    "brief": "Raise the production quality bar: metadata, accessibility labels, color contrast, responsive constraints, documentation, and build hygiene.",
+    "acceptance": [
+      "npm run typecheck passes from client.",
+      "npm run build passes from client.",
+      "Metadata is project-specific.",
+      "No default create-next-app assets or copy are used by the app."
+    ]
+  }
+]

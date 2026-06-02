@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+
+job/swarm/droyd-site-state.json
+job/swarm/droyd-site-stop.json
+job/swarm/logs/
+job/swarm/reports/
+
+client/node_modules/
+client/.next/
+client/out/
+client/coverage/
+client/next-env.d.ts
+client/*.tsbuildinfo
