@@ -1,18 +1,10 @@
-import { FinalTransmission } from "./components/FinalTransmission";
-import { HeroTrailer } from "./components/HeroTrailer";
-import { LabEvidence } from "./components/LabEvidence";
-import { OriginDossier } from "./components/OriginDossier";
-import { SiteMotion } from "./components/SiteMotion";
+import { redirect } from "next/navigation";
 
+/**
+ * The complete application is intentionally authored as one standalone HTML
+ * document in /public. Keeping this tiny route preserves the repository's
+ * existing `npm run dev` workflow while allowing closet.html to run directly.
+ */
 export default function Home() {
-  return (
-    <SiteMotion>
-      <main className="site-shell">
-        <HeroTrailer />
-        <OriginDossier />
-        <LabEvidence />
-        <FinalTransmission />
-      </main>
-    </SiteMotion>
-  );
+  redirect("/closet.html");
 }

@@ -1,0 +1,2312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0c0b" />
+  <meta name="description" content="An interactive, procedurally modeled walk-in wardrobe rendered in real time with Three.js." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='13' fill='%23151311'/%3E%3Cpath d='M16 49 29 15h6l14 34h-8l-3-7H26l-3 7h-7Zm12-14h8l-4-11-4 11Z' fill='%23d6ad72'/%3E%3C/svg%3E" type="image/svg+xml" />
+  <title>Atelier 08 — Interactive Walk-in Wardrobe</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f6f1e8;
+      --muted: #a6a099;
+      --line: rgba(255, 255, 255, 0.13);
+      --panel: rgba(18, 17, 15, 0.72);
+      --panel-solid: #171614;
+      --accent: #d6ad72;
+      --accent-soft: rgba(214, 173, 114, 0.18);
+      --cool: #9ccde0;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0d0c0b;
+      color: var(--ink);
+    }
+
+    button,
+    input { font: inherit; }
+
+    button { color: inherit; }
+
+    #app,
+    #viewport,
+    #webgl {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #webgl {
+      display: block;
+      cursor: grab;
+      touch-action: none;
+      outline: none;
+    }
+
+    #webgl:active { cursor: grabbing; }
+    #webgl.is-hovering { cursor: pointer; }
+
+    .vignette,
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .vignette {
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, .28), transparent 24%, transparent 72%, rgba(0, 0, 0, .46)),
+        radial-gradient(circle at 50% 46%, transparent 38%, rgba(0, 0, 0, .36) 100%);
+    }
+
+    .grain {
+      opacity: .045;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+    }
+
+    .topbar {
+      position: fixed;
+      z-index: 5;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: max(22px, env(safe-area-inset-top)) 28px 0;
+      pointer-events: none;
+    }
+
+    .brand { pointer-events: auto; }
+
+    .brand__eyebrow {
+      margin: 0 0 6px;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(23px, 2.3vw, 36px);
+      font-weight: 400;
+      letter-spacing: -.035em;
+      line-height: .95;
+      text-shadow: 0 2px 20px rgba(0, 0, 0, .4);
+    }
+
+    .brand__sub {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, .54);
+      font-size: 10px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(12, 12, 11, .45);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+      backdrop-filter: blur(16px);
+      color: rgba(255, 255, 255, .68);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .live-badge::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #a8d9bd;
+      box-shadow: 0 0 12px #8bdfaa;
+      content: "";
+    }
+
+    .panel {
+      position: fixed;
+      z-index: 6;
+      top: 50%;
+      right: 24px;
+      width: min(292px, calc(100vw - 32px));
+      max-height: calc(100vh - 128px);
+      overflow: auto;
+      transform: translateY(-50%);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .34);
+      backdrop-filter: blur(22px) saturate(115%);
+      scrollbar-width: none;
+      transition: transform .45s var(--ease), opacity .3s ease;
+    }
+
+    .panel::-webkit-scrollbar { display: none; }
+
+    .panel.is-collapsed {
+      transform: translate(calc(100% - 48px), -50%);
+    }
+
+    .panel.is-collapsed .panel__toggle svg { transform: rotate(180deg); }
+
+    .panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 17px 18px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel__title {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .21em;
+      text-transform: uppercase;
+    }
+
+    .panel__toggle {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .06);
+      cursor: pointer;
+    }
+
+    .panel__toggle svg { transition: transform .4s var(--ease); }
+
+    .panel__body { padding: 18px; }
+
+    .control + .control {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .control__row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 11px;
+    }
+
+    .control__label {
+      color: rgba(255, 255, 255, .62);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    .control__value {
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: .08em;
+    }
+
+    .themes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .theme {
+      min-width: 0;
+      min-height: 74px;
+      padding: 8px 6px 9px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .045);
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color .2s ease, background .2s ease, transform .2s ease;
+    }
+
+    .theme:hover { transform: translateY(-2px); }
+
+    .theme[aria-pressed="true"] {
+      border-color: rgba(214, 173, 114, .65);
+      background: var(--accent-soft);
+    }
+
+    .theme__swatch {
+      height: 32px;
+      display: block;
+      margin-bottom: 7px;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+    }
+
+    .theme:nth-child(1) .theme__swatch {
+      background: repeating-linear-gradient(95deg, #2b1b14 0 6px, #3c281d 7px 13px, #1e1511 14px 16px);
+    }
+
+    .theme:nth-child(2) .theme__swatch {
+      background: repeating-linear-gradient(95deg, #c5a676 0 6px, #e0c897 7px 13px, #ad8c5d 14px 16px);
+    }
+
+    .theme:nth-child(3) .theme__swatch {
+      background: linear-gradient(135deg, #f2f0e9, #bcbab3);
+    }
+
+    .theme__name {
+      display: block;
+      color: rgba(255, 255, 255, .76);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 18px;
+      margin: 0;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent) 0 var(--range, 78%), rgba(255, 255, 255, .14) var(--range, 78%));
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 16px;
+      height: 16px;
+      margin-top: -6.5px;
+      appearance: none;
+      border: 4px solid var(--panel-solid);
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .28), 0 0 14px rgba(214, 173, 114, .28);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+    }
+
+    input[type="range"]::-moz-range-progress { background: var(--accent); }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border: 4px solid var(--panel-solid);
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .scene-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .scene-action {
+      min-width: 0;
+      min-height: 38px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .045);
+      color: rgba(255, 255, 255, .62);
+      cursor: pointer;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      transition: border-color .2s ease, background .2s ease, color .2s ease;
+    }
+
+    .scene-action:hover,
+    .scene-action[aria-pressed="true"] {
+      border-color: rgba(214, 173, 114, .52);
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+
+    .metric {
+      min-height: 52px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, .12);
+    }
+
+    .metric span {
+      display: block;
+      color: rgba(255, 255, 255, .38);
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      color: rgba(255, 255, 255, .82);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .instructions {
+      position: fixed;
+      z-index: 5;
+      left: 28px;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: none;
+    }
+
+    .instruction {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: rgba(255, 255, 255, .48);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .instruction svg {
+      width: 18px;
+      height: 18px;
+      opacity: .75;
+    }
+
+    #tooltip {
+      position: fixed;
+      z-index: 8;
+      left: 0;
+      top: 0;
+      padding: 8px 10px;
+      transform: translate(-50%, calc(-100% - 14px));
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 8px;
+      background: rgba(13, 13, 12, .84);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
+      backdrop-filter: blur(14px);
+      color: rgba(255, 255, 255, .82);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .14s ease;
+      white-space: nowrap;
+    }
+
+    #tooltip.is-visible { opacity: 1; }
+
+    #toast {
+      position: fixed;
+      z-index: 7;
+      left: 50%;
+      bottom: 29px;
+      max-width: calc(100vw - 40px);
+      padding: 10px 14px;
+      transform: translate(-50%, 20px);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(12, 12, 11, .78);
+      backdrop-filter: blur(16px);
+      color: rgba(255, 255, 255, .78);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-align: center;
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease, transform .4s var(--ease);
+    }
+
+    #toast.is-visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    #loading {
+      position: fixed;
+      z-index: 20;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 45%, #211c18, #0b0a09 66%),
+        #0b0a09;
+      transition: opacity .8s ease, visibility .8s;
+    }
+
+    #loading.is-done {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    .loader {
+      width: min(360px, calc(100vw - 64px));
+      text-align: center;
+    }
+
+    .loader__mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      border: 1px solid rgba(214, 173, 114, .45);
+      border-radius: 50%;
+      color: var(--accent);
+      font-family: Georgia, serif;
+      font-size: 18px;
+    }
+
+    .loader__label {
+      margin: 0 0 12px;
+      color: rgba(255, 255, 255, .68);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+    }
+
+    .loader__track {
+      height: 1px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .12);
+    }
+
+    .loader__bar {
+      width: 42%;
+      height: 100%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: load 1.2s ease-in-out infinite;
+    }
+
+    .loader__detail {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, .3);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8px;
+      letter-spacing: .1em;
+    }
+
+    .error-card {
+      display: none;
+      max-width: 460px;
+      margin: 24px;
+      padding: 24px;
+      border: 1px solid rgba(255, 150, 120, .3);
+      border-radius: 16px;
+      background: rgba(40, 15, 12, .6);
+      text-align: left;
+    }
+
+    .error-card h2 { margin: 0 0 10px; font: 400 25px/1 Georgia, serif; }
+    .error-card p { margin: 0; color: rgba(255,255,255,.62); font-size: 13px; line-height: 1.6; }
+    #loading.has-error .loader { display: none; }
+    #loading.has-error .error-card { display: block; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    @keyframes load {
+      0% { transform: translateX(-120%); }
+      55% { transform: translateX(135%); }
+      100% { transform: translateX(260%); }
+    }
+
+    @media (max-width: 760px) {
+      .topbar { padding: max(17px, env(safe-area-inset-top)) 17px 0; }
+      .brand__sub { display: none; }
+      .live-badge {
+        width: 30px;
+        height: 30px;
+        flex: 0 0 auto;
+        justify-content: center;
+        padding: 0;
+        font-size: 0;
+      }
+
+      .panel {
+        top: auto;
+        right: 12px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        left: 12px;
+        width: auto;
+        max-height: min(47vh, 390px);
+        transform: none;
+        border-radius: 16px;
+      }
+
+      .panel.is-collapsed {
+        transform: translateY(calc(100% - 58px));
+      }
+
+      .panel.is-collapsed .panel__toggle svg { transform: rotate(180deg); }
+      .panel__header { min-height: 56px; }
+      .panel__body { padding: 15px; }
+      .control + .control { margin-top: 15px; padding-top: 15px; }
+      .theme { min-height: 61px; }
+      .theme__swatch { height: 24px; }
+      .metrics { display: none; }
+      .instructions { display: none; }
+      #toast { bottom: auto; top: 82px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <main id="viewport" aria-label="Interactive three-dimensional walk-in wardrobe">
+      <canvas id="webgl" data-webgl-canvas aria-label="Use the pointer to orbit around the wardrobe. Select illuminated furniture to open it."></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+    </main>
+
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand__eyebrow">Private residence · Suite 08</p>
+        <h1>Atelier Wardrobe</h1>
+        <p class="brand__sub">Interactive interior study · 42.8 m²</p>
+      </div>
+      <div class="live-badge">Real-time model</div>
+    </header>
+
+    <aside class="panel" id="control-panel" aria-label="Wardrobe controls">
+      <div class="panel__header">
+        <h2 class="panel__title">Material studio</h2>
+        <button class="panel__toggle" id="panel-toggle" type="button" aria-label="Collapse controls" aria-expanded="true">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M3 5.25 7 9l4-3.75" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="panel__body">
+        <section class="control" aria-labelledby="finish-label">
+          <div class="control__row">
+            <span class="control__label" id="finish-label">Cabinet finish</span>
+            <span class="control__value" id="theme-value">Walnut / 01</span>
+          </div>
+          <div class="themes">
+            <button class="theme" type="button" data-theme="walnut" aria-pressed="true">
+              <span class="theme__swatch"></span><span class="theme__name">Dark walnut</span>
+            </button>
+            <button class="theme" type="button" data-theme="oak" aria-pressed="false">
+              <span class="theme__swatch"></span><span class="theme__name">Light oak</span>
+            </button>
+            <button class="theme" type="button" data-theme="white" aria-pressed="false">
+              <span class="theme__swatch"></span><span class="theme__name">Gallery white</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="control">
+          <div class="control__row">
+            <label class="control__label" for="dimmer">Integrated lighting</label>
+            <output class="control__value" id="dimmer-value" for="dimmer">78%</output>
+          </div>
+          <input id="dimmer" type="range" min="8" max="100" value="78" aria-label="Integrated lighting brightness" />
+        </section>
+
+        <section class="control" aria-labelledby="access-label">
+          <div class="control__row">
+            <span class="control__label" id="access-label">Cabinet access</span>
+            <span class="control__value">Select</span>
+          </div>
+          <div class="scene-actions">
+            <button class="scene-action" type="button" data-scene-action="drawer" aria-pressed="false">Drawers</button>
+            <button class="scene-action" type="button" data-scene-action="safe" aria-pressed="false">Vault</button>
+            <button class="scene-action" type="button" data-scene-action="door" aria-pressed="false">Display</button>
+          </div>
+        </section>
+
+        <section class="control">
+          <div class="control__row">
+            <span class="control__label">Live specification</span>
+            <span class="control__value" id="quality-value">High</span>
+          </div>
+          <div class="metrics" aria-label="Model specifications">
+            <div class="metric"><span>Lighting</span><strong>2700K + 4800K</strong></div>
+            <div class="metric"><span>Finish</span><strong id="metric-finish">Oiled walnut</strong></div>
+            <div class="metric"><span>Simulation</span><strong>Verlet cloth</strong></div>
+            <div class="metric"><span>Renderer</span><strong>WebGL / PBR</strong></div>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <div class="instructions" aria-hidden="true">
+      <span class="instruction">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="6" y="2.5" width="8" height="15" rx="4" stroke="currentColor"/><path d="M10 3v5" stroke="currentColor"/></svg>
+        Drag to orbit
+      </span>
+      <span class="instruction">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M7.5 5.5 10 3l2.5 2.5M7.5 14.5 10 17l2.5-2.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 4v12" stroke="currentColor"/></svg>
+        Scroll to explore
+      </span>
+      <span class="instruction">
+        <svg viewBox="0 0 20 20" fill="none"><path d="m6 12.5 1.3-6.1c.2-.9 1.5-1 1.8-.1l.7 2.1.8-5c.2-1.1 1.8-1.1 2 0l.8 7.1 1.1-1.1c.7-.7 1.9 0 1.5.9l-1.8 4.2a2.5 2.5 0 0 1-2.3 1.5H8.5A2.5 2.5 0 0 1 6 13.5v-1Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Select to open
+      </span>
+    </div>
+
+    <div id="tooltip" role="status"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <div id="loading" role="status" aria-live="polite">
+      <div class="loader">
+        <div class="loader__mark">A</div>
+        <p class="loader__label">Assembling the wardrobe</p>
+        <div class="loader__track"><div class="loader__bar"></div></div>
+        <div class="loader__detail" id="loader-detail">Generating PBR materials</div>
+      </div>
+      <div class="error-card">
+        <h2>The 3D studio could not start.</h2>
+        <p>This experience needs WebGL and access to the Three.js module CDN. Try a current browser or serve this file from a local web server.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+    import { Reflector } from 'three/addons/objects/Reflector.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+    import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+    import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+
+    // -----------------------------------------------------------------------
+    // Runtime configuration and state
+    // -----------------------------------------------------------------------
+    const canvas = document.querySelector('#webgl');
+    const loading = document.querySelector('#loading');
+    const loaderDetail = document.querySelector('#loader-detail');
+    const tooltip = document.querySelector('#tooltip');
+    const toast = document.querySelector('#toast');
+    const isMobile = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const query = new URLSearchParams(location.search);
+    const visualCheck = query.has('visual-check');
+    const quality = isMobile ? 'Balanced' : 'High';
+    document.querySelector('#quality-value').textContent = quality;
+
+    const state = {
+      theme: 'walnut',
+      dimmer: 0.78,
+      hovered: null,
+      pressedAt: new THREE.Vector2(),
+      pointer: new THREE.Vector2(2, 2),
+      pointerClient: new THREE.Vector2(),
+      pointerDown: false,
+      dragging: false,
+      ready: false,
+      visible: true,
+      frame: 0,
+      toastTimer: null,
+    };
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x151311);
+    scene.fog = new THREE.FogExp2(0x151311, 0.014);
+
+    const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.08, 60);
+    camera.position.set(6.15, 4.5, 11.4);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: visualCheck,
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.2 : 1.55));
+    renderer.setSize(innerWidth, innerHeight, false);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.94;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = true;
+
+    RectAreaLightUniformsLib.init();
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.target.set(0, 2.5, -0.9);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.065;
+    controls.minDistance = 5.6;
+    controls.maxDistance = 16.5;
+    controls.minPolarAngle = 0.62;
+    controls.maxPolarAngle = 1.51;
+    controls.minAzimuthAngle = -1.25;
+    controls.maxAzimuthAngle = 1.25;
+    controls.enablePan = false;
+    controls.zoomToCursor = true;
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const environment = new RoomEnvironment();
+    scene.environment = pmrem.fromScene(environment, 0.04).texture;
+    scene.environmentIntensity = .62;
+    environment.dispose();
+    pmrem.dispose();
+
+    // Post-processing: ambient contact shadows, hover outlines, selective-feeling
+    // emissive bloom, linear-space morphological AA, then the output transform.
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const ssaoPass = new SSAOPass(scene, camera, innerWidth, innerHeight);
+    ssaoPass.kernelRadius = isMobile ? 7 : 10;
+    ssaoPass.minDistance = 0.002;
+    ssaoPass.maxDistance = 0.13;
+    ssaoPass.enabled = !isMobile && !visualCheck;
+    composer.addPass(ssaoPass);
+
+    const outlinePass = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, camera);
+    outlinePass.edgeStrength = 2.7;
+    outlinePass.edgeGlow = 0.28;
+    outlinePass.edgeThickness = 1.2;
+    outlinePass.visibleEdgeColor.set(0xe6bd82);
+    outlinePass.hiddenEdgeColor.set(0x34291f);
+    composer.addPass(outlinePass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(innerWidth, innerHeight),
+      isMobile ? 0.32 : 0.46,
+      0.55,
+      0.92,
+    );
+    bloomPass.enabled = !visualCheck;
+    composer.addPass(bloomPass);
+    const smaaPass = new SMAAPass(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio());
+    composer.addPass(smaaPass);
+    composer.addPass(new OutputPass());
+
+    // -----------------------------------------------------------------------
+    // Deterministic procedural PBR texture generation
+    // -----------------------------------------------------------------------
+    function mulberry32(seed) {
+      return () => {
+        let value = seed += 0x6D2B79F5;
+        value = Math.imul(value ^ value >>> 15, value | 1);
+        value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+        return ((value ^ value >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function canvasTexture(canvas, { color = false, repeat = [1, 1] } = {}) {
+      const texture = new THREE.CanvasTexture(canvas);
+      if (color) texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(...repeat);
+      texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function makeCanvas(size = 512) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      return canvas;
+    }
+
+    function hexToRgb(hex) {
+      return { r: hex >> 16, g: (hex >> 8) & 255, b: hex & 255 };
+    }
+
+    function buildWoodMaps(baseHex, seed, repeat = [2.6, 1]) {
+      const random = mulberry32(seed);
+      const base = hexToRgb(baseHex);
+      const size = 512;
+      const colorCanvas = makeCanvas(size);
+      const heightCanvas = makeCanvas(size);
+      const roughCanvas = makeCanvas(size);
+      const normalCanvas = makeCanvas(size);
+      const color = colorCanvas.getContext('2d');
+      const height = heightCanvas.getContext('2d');
+      const rough = roughCanvas.getContext('2d');
+      const normal = normalCanvas.getContext('2d');
+
+      color.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+      color.fillRect(0, 0, size, size);
+      height.fillStyle = '#777';
+      height.fillRect(0, 0, size, size);
+      rough.fillStyle = '#8c8c8c';
+      rough.fillRect(0, 0, size, size);
+      normal.fillStyle = '#8080ff';
+      normal.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 180; i++) {
+        const x = random() * size;
+        const width = 0.25 + random() * 2.2;
+        const wave = 2 + random() * 12;
+        const alpha = 0.025 + random() * 0.11;
+        color.beginPath();
+        height.beginPath();
+        normal.beginPath();
+        for (let y = -20; y <= size + 20; y += 8) {
+          const px = x + Math.sin(y * (0.012 + random() * 0.005) + i) * wave;
+          if (y === -20) {
+            color.moveTo(px, y); height.moveTo(px, y); normal.moveTo(px, y);
+          } else {
+            color.lineTo(px, y); height.lineTo(px, y); normal.lineTo(px, y);
+          }
+        }
+        color.strokeStyle = random() > .48 ? `rgba(18,7,2,${alpha})` : `rgba(255,231,180,${alpha * .7})`;
+        color.lineWidth = width;
+        color.stroke();
+        height.strokeStyle = random() > .5 ? 'rgba(32,32,32,.18)' : 'rgba(230,230,230,.13)';
+        height.lineWidth = width * 1.4;
+        height.stroke();
+        normal.strokeStyle = random() > .5 ? 'rgba(102,135,255,.24)' : 'rgba(153,120,255,.2)';
+        normal.lineWidth = width * 1.2;
+        normal.stroke();
+      }
+
+      for (let i = 0; i < 11; i++) {
+        const x = random() * size;
+        const y = random() * size;
+        const rx = 5 + random() * 14;
+        const ry = rx * (2 + random() * 2.4);
+        color.save();
+        color.translate(x, y);
+        color.rotate((random() - .5) * .3);
+        for (let ring = 0; ring < 4; ring++) {
+          color.strokeStyle = `rgba(25,9,3,${.15 - ring * .025})`;
+          color.lineWidth = 1.2;
+          color.beginPath();
+          color.ellipse(0, 0, rx + ring * 3, ry + ring * 7, 0, 0, Math.PI * 2);
+          color.stroke();
+        }
+        color.restore();
+      }
+
+      for (let i = 0; i < 360; i++) {
+        const shade = 112 + Math.floor(random() * 45);
+        rough.fillStyle = `rgba(${shade},${shade},${shade},${.05 + random() * .12})`;
+        rough.fillRect(random() * size, random() * size, 1 + random() * 5, 18 + random() * 90);
+      }
+
+      return {
+        map: canvasTexture(colorCanvas, { color: true, repeat }),
+        roughnessMap: canvasTexture(roughCanvas, { repeat }),
+        normalMap: canvasTexture(normalCanvas, { repeat }),
+        displacementMap: canvasTexture(heightCanvas, { repeat }),
+      };
+    }
+
+    function buildFabricMaps(baseHex = 0x777777, repeat = [10, 10], seed = 3) {
+      const random = mulberry32(seed);
+      const base = hexToRgb(baseHex);
+      const size = 384;
+      const colorCanvas = makeCanvas(size);
+      const normalCanvas = makeCanvas(size);
+      const roughCanvas = makeCanvas(size);
+      const heightCanvas = makeCanvas(size);
+      const color = colorCanvas.getContext('2d');
+      const normal = normalCanvas.getContext('2d');
+      const rough = roughCanvas.getContext('2d');
+      const height = heightCanvas.getContext('2d');
+      color.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+      color.fillRect(0, 0, size, size);
+      normal.fillStyle = '#8080ff'; normal.fillRect(0, 0, size, size);
+      rough.fillStyle = '#d2d2d2'; rough.fillRect(0, 0, size, size);
+      height.fillStyle = '#777'; height.fillRect(0, 0, size, size);
+      for (let i = 0; i < size; i += 3) {
+        color.fillStyle = `rgba(255,255,255,${.025 + random() * .04})`;
+        color.fillRect(i, 0, 1, size);
+        color.fillStyle = `rgba(0,0,0,${.02 + random() * .03})`;
+        color.fillRect(0, i + 1, size, 1);
+        normal.fillStyle = i % 6 ? 'rgba(145,118,255,.26)' : 'rgba(112,144,255,.28)';
+        normal.fillRect(i, 0, 1, size);
+        normal.fillRect(0, i, size, 1);
+        height.fillStyle = i % 6 ? 'rgba(215,215,215,.24)' : 'rgba(45,45,45,.18)';
+        height.fillRect(i, 0, 1, size);
+        height.fillRect(0, i, size, 1);
+      }
+      return {
+        map: canvasTexture(colorCanvas, { color: true, repeat }),
+        normalMap: canvasTexture(normalCanvas, { repeat }),
+        roughnessMap: canvasTexture(roughCanvas, { repeat }),
+        displacementMap: canvasTexture(heightCanvas, { repeat }),
+      };
+    }
+
+    function buildLeatherMaps() {
+      const random = mulberry32(91);
+      const size = 384;
+      const normalCanvas = makeCanvas(size);
+      const roughCanvas = makeCanvas(size);
+      const normal = normalCanvas.getContext('2d');
+      const rough = roughCanvas.getContext('2d');
+      normal.fillStyle = '#8080ff'; normal.fillRect(0, 0, size, size);
+      rough.fillStyle = '#929292'; rough.fillRect(0, 0, size, size);
+      for (let i = 0; i < 2200; i++) {
+        const x = random() * size;
+        const y = random() * size;
+        const r = .4 + random() * 2.2;
+        normal.fillStyle = random() > .5 ? 'rgba(155,120,255,.22)' : 'rgba(110,145,255,.22)';
+        normal.beginPath(); normal.arc(x, y, r, 0, Math.PI * 2); normal.fill();
+        rough.fillStyle = `rgba(255,255,255,${random() * .08})`;
+        rough.fillRect(x, y, r, r);
+      }
+      return {
+        normalMap: canvasTexture(normalCanvas, { repeat: [6, 6] }),
+        roughnessMap: canvasTexture(roughCanvas, { repeat: [6, 6] }),
+      };
+    }
+
+    function buildMetalMaps() {
+      const random = mulberry32(18);
+      const size = 256;
+      const roughCanvas = makeCanvas(size);
+      const normalCanvas = makeCanvas(size);
+      const rough = roughCanvas.getContext('2d');
+      const normal = normalCanvas.getContext('2d');
+      rough.fillStyle = '#484848'; rough.fillRect(0, 0, size, size);
+      normal.fillStyle = '#8080ff'; normal.fillRect(0, 0, size, size);
+      for (let y = 0; y < size; y++) {
+        const shade = 90 + Math.floor(random() * 60);
+        rough.fillStyle = `rgba(${shade},${shade},${shade},.24)`;
+        rough.fillRect(0, y, size, random() > .82 ? 2 : 1);
+        normal.fillStyle = random() > .5 ? 'rgba(150,120,255,.2)' : 'rgba(108,142,255,.2)';
+        normal.fillRect(0, y, size, 1);
+      }
+      return {
+        roughnessMap: canvasTexture(roughCanvas, { repeat: [1, 7] }),
+        normalMap: canvasTexture(normalCanvas, { repeat: [1, 7] }),
+      };
+    }
+
+    loaderDetail.textContent = 'Weaving material maps';
+    const woodMaps = {
+      walnut: buildWoodMaps(0x3a2419, 72),
+      oak: buildWoodMaps(0xc29d67, 38),
+      white: buildWoodMaps(0xe2e0d8, 104),
+      floor: buildWoodMaps(0x8b6842, 56, [5.5, 1]),
+    };
+    const fabricMaps = buildFabricMaps();
+    const rugMaps = buildFabricMaps(0x77736c, [24, 34], 29);
+    const leatherMaps = buildLeatherMaps();
+    const metalMaps = buildMetalMaps();
+
+    const cabinetMaterial = new THREE.MeshStandardMaterial({
+      ...woodMaps.walnut,
+      color: 0xffffff,
+      roughness: 0.48,
+      metalness: 0.02,
+      normalScale: new THREE.Vector2(.34, .34),
+      displacementScale: .006,
+      displacementBias: -.003,
+    });
+    const cabinetInsideMaterial = cabinetMaterial.clone();
+    cabinetInsideMaterial.color.set(0xbfb4a7);
+    cabinetInsideMaterial.roughness = .57;
+
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      ...woodMaps.floor,
+      color: 0xffffff,
+      roughness: .42,
+      metalness: .01,
+      normalScale: new THREE.Vector2(.34, .34),
+      displacementScale: .022,
+    });
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xc6c0b6, roughness: .88, metalness: 0 });
+    const ceilingMaterial = wallMaterial.clone();
+    ceilingMaterial.color.set(0xb8b1a7);
+    const darkMetalMaterial = new THREE.MeshStandardMaterial({ color: 0x232323, metalness: .9, roughness: .26, ...metalMaps, normalScale: new THREE.Vector2(.18, .18) });
+    const hardwareMaterial = new THREE.MeshStandardMaterial({ color: 0xb18b56, metalness: .95, roughness: .24, ...metalMaps, normalScale: new THREE.Vector2(.15, .15) });
+    const chromeMaterial = new THREE.MeshStandardMaterial({ color: 0xc9d0d1, metalness: 1, roughness: .13, ...metalMaps, normalScale: new THREE.Vector2(.08, .08) });
+    const blackMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: .32, metalness: .44 });
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xcadfe4,
+      metalness: 0,
+      roughness: .08,
+      transmission: .82,
+      thickness: .06,
+      transparent: true,
+      opacity: .5,
+      ior: 1.5,
+      envMapIntensity: 1.4,
+    });
+    const safeMaterial = new THREE.MeshStandardMaterial({ color: 0x292b2c, metalness: .82, roughness: .33, ...metalMaps });
+    const safeInsideMaterial = new THREE.MeshStandardMaterial({ color: 0x151719, metalness: .55, roughness: .5 });
+    const leatherMaterial = new THREE.MeshPhysicalMaterial({ color: 0x4c281b, roughness: .44, metalness: .02, clearcoat: .18, ...leatherMaps, normalScale: new THREE.Vector2(.28, .28) });
+    const suedeMaterial = new THREE.MeshPhysicalMaterial({ color: 0x8a8176, roughness: .94, sheen: .75, sheenColor: new THREE.Color(0xcfc2b4), ...fabricMaps, displacementScale: .006, displacementBias: -.003 });
+    const rugMaterial = new THREE.MeshStandardMaterial({ color: 0x5e5a55, roughness: .96, ...rugMaps, normalScale: new THREE.Vector2(.42, .42), displacementScale: .035 });
+    const cableMaterial = new THREE.MeshStandardMaterial({ color: 0x171819, roughness: .54, metalness: .18 });
+    const redWireMaterial = new THREE.MeshStandardMaterial({ color: 0x5d1111, emissive: 0x5b0906, emissiveIntensity: .5, roughness: .45 });
+    const cyanWireMaterial = new THREE.MeshStandardMaterial({ color: 0x184c52, emissive: 0x0c8898, emissiveIntensity: 1.5, roughness: .35 });
+
+    const architecture = new THREE.Group();
+    architecture.name = 'Architecture';
+    const cabinetry = new THREE.Group();
+    cabinetry.name = 'Cabinetry';
+    const decor = new THREE.Group();
+    decor.name = 'Clothing and decor';
+    const electrical = new THREE.Group();
+    electrical.name = 'Lighting and electrical';
+    scene.add(architecture, cabinetry, decor, electrical);
+
+    const interactables = [];
+    const actions = [];
+    const ledMaterials = [];
+    const controlledLights = [];
+    const clothSystems = [];
+    const themedMaterials = [cabinetMaterial, cabinetInsideMaterial];
+
+    // -----------------------------------------------------------------------
+    // Geometry helpers
+    // -----------------------------------------------------------------------
+    const roundedBoxGeometryCache = new Map();
+    const cylinderGeometryCache = new Map();
+    const tubeGeometryCache = new Map();
+
+    function finishMesh(mesh, { cast = true, receive = true } = {}) {
+      mesh.castShadow = cast;
+      mesh.receiveShadow = receive;
+      return mesh;
+    }
+
+    function box(w, h, d, material, position = [0, 0, 0], radius = .025, shadows = true) {
+      const segments = radius > .06 ? 4 : 2;
+      const safeRadius = Math.min(radius, w * .2, h * .2, d * .2);
+      const key = `${w}|${h}|${d}|${radius > 0 ? segments : 0}|${safeRadius}`;
+      let geometry = roundedBoxGeometryCache.get(key);
+      if (!geometry) {
+        geometry = radius > 0
+          ? new RoundedBoxGeometry(w, h, d, segments, safeRadius)
+          : new THREE.BoxGeometry(w, h, d);
+        roundedBoxGeometryCache.set(key, geometry);
+      }
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(...position);
+      return finishMesh(mesh, { cast: shadows, receive: shadows });
+    }
+
+    function cylinder(radius, length, material, position = [0, 0, 0], axis = 'y', segments = 20) {
+      const key = `${radius}|${length}|${segments}`;
+      let geometry = cylinderGeometryCache.get(key);
+      if (!geometry) {
+        geometry = new THREE.CylinderGeometry(radius, radius, length, segments);
+        cylinderGeometryCache.set(key, geometry);
+      }
+      const mesh = finishMesh(new THREE.Mesh(geometry, material));
+      mesh.position.set(...position);
+      if (axis === 'x') mesh.rotation.z = Math.PI / 2;
+      if (axis === 'z') mesh.rotation.x = Math.PI / 2;
+      return mesh;
+    }
+
+    function tube(points, radius, material, segments = 32) {
+      const key = `${radius}|${segments}|${points.flat().join(',')}`;
+      let geometry = tubeGeometryCache.get(key);
+      if (!geometry) {
+        const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
+        geometry = new THREE.TubeGeometry(curve, segments, radius, 8, false);
+        tubeGeometryCache.set(key, geometry);
+      }
+      return finishMesh(new THREE.Mesh(geometry, material));
+    }
+
+    function addLabelPlate(parent, textLikeWidth, position, material = hardwareMaterial) {
+      const plate = box(textLikeWidth, .12, .025, material, position, .018);
+      parent.add(plate);
+      const inset = box(textLikeWidth * .76, .025, .035, blackMaterial, [position[0], position[1], position[2] + .018], .005, false);
+      parent.add(inset);
+    }
+
+    function makeLedStrip(parent, { position, size, color = 0xffc47a, intensity = 2.8, area = true, rotation = [0, 0, 0] }) {
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: intensity,
+        roughness: .32,
+        metalness: .05,
+        toneMapped: false,
+      });
+      material.userData.baseIntensity = intensity;
+      ledMaterials.push(material);
+      const diffuser = box(size[0], size[1], size[2], material, position, .012, false);
+      diffuser.rotation.set(...rotation);
+      parent.add(diffuser);
+      if (area) {
+        const light = new THREE.RectAreaLight(color, intensity * 1.55, Math.max(size[0], .2), Math.max(size[1], .16));
+        light.position.set(position[0], position[1] - .04, position[2] + .07);
+        light.rotation.set(-Math.PI / 2, 0, 0);
+        light.userData.baseIntensity = intensity * 1.55;
+        controlledLights.push(light);
+        parent.add(light);
+      } else {
+        // Long channels that run along Z cannot be represented faithfully by
+        // the X/Y RectAreaLight plane. A low-power inverse-square spill light
+        // gives those cool toe-kick and side strips visible falloff without
+        // adding another shadow map.
+        const spill = new THREE.PointLight(color, intensity * 2.15, 3.4, 2);
+        spill.position.set(position[0], position[1] + .12, position[2]);
+        spill.userData.baseIntensity = intensity * 2.15;
+        controlledLights.push(spill);
+        parent.add(spill);
+      }
+      return diffuser;
+    }
+
+    function addInteractive(root, hitMeshes, config) {
+      root.userData.action = {
+        value: 0,
+        target: 0,
+        speed: config.speed || 5.5,
+        kind: config.kind,
+        label: config.label,
+        update: config.update,
+      };
+      actions.push(root);
+      for (const mesh of hitMeshes) {
+        mesh.userData.interactiveRoot = root;
+        interactables.push(mesh);
+      }
+      return root;
+    }
+
+    // -----------------------------------------------------------------------
+    // Architectural shell
+    // -----------------------------------------------------------------------
+    loaderDetail.textContent = 'Building architectural shell';
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(14.2, 13.4, 90, 90), floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, .1);
+    floor.receiveShadow = true;
+    architecture.add(floor);
+
+    // Fine brass inlays divide the oak floor into crafted planks.
+    for (let x = -6.4; x <= 6.4; x += .78) {
+      architecture.add(box(.009, .012, 12.4, hardwareMaterial, [x, .015, .1], .002, false));
+    }
+
+    const backWall = box(13.2, 7.2, .24, wallMaterial, [0, 3.55, -5.55], .02, false);
+    const leftWall = box(.24, 7.2, 12.4, wallMaterial, [-6.55, 3.55, .55], .02, false);
+    const rightWall = box(.24, 7.2, 12.4, wallMaterial, [6.55, 3.55, .55], .02, false);
+    const ceiling = box(13.2, .18, 12.4, ceilingMaterial, [0, 7.08, .55], .02, false);
+    architecture.add(backWall, leftWall, rightWall, ceiling);
+
+    // Shadow gaps and crown details give the walls a believable installed finish.
+    architecture.add(box(12.9, .11, .1, darkMetalMaterial, [0, 6.72, -5.37], .008));
+    architecture.add(box(.1, .11, 11.85, darkMetalMaterial, [-6.37, 6.72, .52], .008));
+    architecture.add(box(.1, .11, 11.85, darkMetalMaterial, [6.37, 6.72, .52], .008));
+    architecture.add(box(13.0, .18, .12, cabinetMaterial, [0, .1, -5.37], .012));
+
+    // A tessellated runner uses actual displacement for a raised woven pile.
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 7.1, 42, 64), rugMaterial);
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(0, .034, 1.3);
+    rug.receiveShadow = true;
+    architecture.add(rug);
+    const rugBorder = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new RoundedBoxGeometry(4.6, .045, 7.2, 3, .12)),
+      new THREE.LineBasicMaterial({ color: 0x8f806f, transparent: true, opacity: .42 }),
+    );
+    rugBorder.position.set(0, .035, 1.3);
+    architecture.add(rugBorder);
+
+    // -----------------------------------------------------------------------
+    // Cabinet carcasses, adjustable shelves, hanging systems
+    // -----------------------------------------------------------------------
+    function buildBackBay({ x, width, rod = true, shelves = [] }) {
+      const bay = new THREE.Group();
+      bay.position.x = x;
+      bay.add(
+        box(.15, 6.34, 1.05, cabinetMaterial, [-width / 2, 3.25, -4.92]),
+        box(.15, 6.34, 1.05, cabinetMaterial, [width / 2, 3.25, -4.92]),
+        box(width, .15, 1.05, cabinetMaterial, [0, 6.35, -4.92]),
+        box(width, .15, 1.05, cabinetMaterial, [0, .16, -4.92]),
+        box(width, 6.05, .07, cabinetInsideMaterial, [0, 3.25, -5.38], .01, false),
+      );
+      if (rod) {
+        bay.add(cylinder(.045, width - .22, chromeMaterial, [0, 4.76, -4.38], 'x', 28));
+        bay.add(cylinder(.095, .06, chromeMaterial, [-width / 2 + .1, 4.76, -4.38], 'x'));
+        bay.add(cylinder(.095, .06, chromeMaterial, [width / 2 - .1, 4.76, -4.38], 'x'));
+      }
+      for (const y of shelves) {
+        bay.add(box(width - .18, .12, .92, cabinetMaterial, [0, y, -4.88], .022));
+      }
+
+      // Vertical slotted standards and shelf brackets are deliberately visible.
+      for (const side of [-1, 1]) {
+        const trackX = side * (width / 2 - .12);
+        bay.add(box(.045, 4.9, .04, darkMetalMaterial, [trackX, 3.25, -4.30], .008));
+        for (let y = .9; y < 5.8; y += .23) {
+          bay.add(box(.025, .07, .025, blackMaterial, [trackX, y, -4.27], .004, false));
+        }
+        for (const y of shelves) {
+          bay.add(box(.12, .055, .38, hardwareMaterial, [trackX - side * .055, y - .09, -4.62], .012));
+          bay.add(box(.045, .22, .06, hardwareMaterial, [trackX, y - .16, -4.32], .008));
+        }
+      }
+      cabinetry.add(bay);
+      return bay;
+    }
+
+    const leftBay = buildBackBay({ x: -4.55, width: 3.25, rod: true, shelves: [1.02] });
+    const rightBay = buildBackBay({ x: 4.55, width: 3.25, rod: true, shelves: [1.12] });
+
+    // Central safe tower, framed into the back wall.
+    const safeTower = new THREE.Group();
+    safeTower.add(
+      box(.15, 6.34, 1.05, cabinetMaterial, [-1.45, 3.25, -4.92]),
+      box(.15, 6.34, 1.05, cabinetMaterial, [1.45, 3.25, -4.92]),
+      box(3.0, .15, 1.05, cabinetMaterial, [0, 6.35, -4.92]),
+      box(3.0, .15, 1.05, cabinetMaterial, [0, .16, -4.92]),
+      box(2.78, .13, .95, cabinetMaterial, [0, 5.06, -4.9], .02),
+      box(2.78, .13, .95, cabinetMaterial, [0, 1.22, -4.9], .02),
+    );
+
+    // Safe cavity, lining, inner shelf, and lock bolts.
+    const safeBody = box(2.35, 3.35, .88, safeMaterial, [0, 3.12, -5.0], .09);
+    const safeCavity = box(1.97, 2.93, .5, safeInsideMaterial, [0, 3.12, -4.48], .045);
+    const safeShelf = box(1.82, .08, .45, safeMaterial, [0, 2.91, -4.2], .015);
+    safeTower.add(safeBody, safeCavity, safeShelf);
+    safeTower.add(box(.72, .25, .36, leatherMaterial, [-.46, 2.42, -4.17], .05));
+    safeTower.add(box(.52, .19, .34, suedeMaterial, [.49, 3.36, -4.17], .04));
+
+    const safePivot = new THREE.Group();
+    safePivot.position.set(-1.04, 3.12, -4.04);
+    const safeDoor = box(2.12, 3.12, .2, safeMaterial, [1.06, 0, 0], .07);
+    safePivot.add(safeDoor);
+    // Locking wheel, keypad, status LED, hinge blocks, and visible locking bolts.
+    const wheelRing = new THREE.Mesh(new THREE.TorusGeometry(.24, .035, 12, 32), chromeMaterial);
+    wheelRing.position.set(1.16, .12, .13);
+    safePivot.add(finishMesh(wheelRing));
+    for (let i = 0; i < 3; i++) {
+      const spoke = cylinder(.022, .42, chromeMaterial, [1.16, .12, .14], 'y', 12);
+      spoke.rotation.z = i * Math.PI / 3;
+      safePivot.add(spoke);
+    }
+    safePivot.add(box(.48, .6, .08, blackMaterial, [1.57, .68, .15], .045));
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) {
+      safePivot.add(cylinder(.025, .018, chromeMaterial, [1.45 + col * .12, .82 - row * .13, .202], 'z', 12));
+    }
+    const safeLed = new THREE.MeshBasicMaterial({ color: 0x71d99c, toneMapped: false });
+    safePivot.add(cylinder(.022, .02, safeLed, [1.62, .42, .205], 'z', 12));
+    for (const y of [-1.18, 1.18]) {
+      safePivot.add(cylinder(.12, .42, safeMaterial, [.08, y, -.04], 'y'));
+    }
+    for (const y of [-1.05, -.35, .35, 1.05]) {
+      safePivot.add(cylinder(.07, .34, chromeMaterial, [2.1, y, -.04], 'x', 18));
+    }
+    safeTower.add(safePivot);
+    addInteractive(safePivot, [safeDoor], {
+      kind: 'safe', label: 'Open secure vault', speed: 3.8,
+      update: (value) => { safePivot.rotation.y = value * -1.68; },
+    });
+
+    // Display shelves above and below the safe.
+    for (const y of [5.52, 5.96]) {
+      safeTower.add(box(2.62, .1, .88, cabinetMaterial, [0, y, -4.88], .02));
+      makeLedStrip(safeTower, { position: [0, y - .075, -4.38], size: [2.35, .028, .035], intensity: 1.85 });
+    }
+    safeTower.add(box(.55, .32, .42, leatherMaterial, [-.62, 5.72, -4.42], .055));
+    safeTower.add(box(.43, .26, .36, suedeMaterial, [.7, 5.72, -4.42], .055));
+    cabinetry.add(safeTower);
+
+    // Side-wall shelving is modeled in local groups, then turned inward.
+    function buildSideSystem(side) {
+      const group = new THREE.Group();
+      const x = side * 5.95;
+      group.add(
+        box(.98, 6.36, .14, cabinetMaterial, [x, 3.25, -4.75]),
+        box(.98, 6.36, .14, cabinetMaterial, [x, 3.25, 4.72]),
+        box(.98, .14, 9.6, cabinetMaterial, [x, 6.36, 0], .025),
+        box(.98, .14, 9.6, cabinetMaterial, [x, .16, 0], .025),
+        box(.08, 6.04, 9.28, cabinetInsideMaterial, [side * 6.38, 3.25, 0], .01, false),
+      );
+      const verticals = [-3.0, -.8, 1.45, 3.0];
+      verticals.forEach((z) => group.add(box(.98, 6.08, .12, cabinetMaterial, [x, 3.25, z], .02)));
+
+      const shelfZ = side < 0 ? [-3.85, -3.42, -2.55, -2.1, -.25, .2, .65, 1.95, 2.46, 3.02, 3.56, 4.15] : [-4.1, -3.55, -2.92, -2.28, -1.62, -.25, .48, 1.2, 2.05, 2.8, 3.55, 4.18];
+      shelfZ.forEach((z, index) => {
+        const y = index < 4 ? 1.1 + (index % 4) * 1.1 : 1.05 + (index % 5) * 1.05;
+        const shelf = box(.92, .1, side < 0 ? 1.95 : 1.45, cabinetMaterial, [x - side * .03, y, z], .018);
+        if (side > 0 && index < 7) shelf.rotation.x = (index % 2 ? -1 : 1) * .07;
+        group.add(shelf);
+      });
+
+      // Under-shelf LEDs alternate warm and cool channels.
+      for (const [y, z, color] of [[2.12, -3.9, 0xffc27a], [4.35, -2.0, 0x9edaff], [3.24, .55, 0xffbf70], [5.16, 3.55, 0xa8ddff]]) {
+        makeLedStrip(group, {
+          position: [x - side * .5, y, z], size: [.035, .035, 1.12], color, intensity: color === 0xffc27a || color === 0xffbf70 ? 2.2 : 1.8, area: false,
+        });
+      }
+      cabinetry.add(group);
+      return group;
+    }
+    const leftSystem = buildSideSystem(-1);
+    const rightSystem = buildSideSystem(1);
+
+    // -----------------------------------------------------------------------
+    // Drawer island with full boxes, telescopic slides, dividers, and jewelry
+    // -----------------------------------------------------------------------
+    const island = new THREE.Group();
+    island.position.set(0, 0, .9);
+    island.add(
+      box(4.45, 1.86, 2.12, cabinetMaterial, [0, 1.0, 0], .08),
+      box(4.72, .14, 2.36, new THREE.MeshStandardMaterial({ color: 0x252423, roughness: .28, metalness: .08 }), [0, 1.98, 0], .06),
+      box(4.18, .1, 1.87, suedeMaterial, [0, 2.08, 0], .045),
+      box(3.96, .025, 1.72, glassMaterial, [0, 2.14, 0], .02, false),
+    );
+
+    function buildDrawer(index, side = 1) {
+      const drawer = new THREE.Group();
+      const y = .5 + index * .49;
+      const x = side * 1.13;
+      drawer.position.set(x, y, 1.06);
+      const front = box(2.08, .42, .13, cabinetMaterial, [0, 0, 0], .035);
+      drawer.add(front);
+      const handle = box(.68, .055, .07, hardwareMaterial, [0, 0, .1], .025);
+      drawer.add(handle);
+      // Drawer box sides, bottom, and velvet organizer become visible when open.
+      drawer.add(
+        box(1.88, .28, .075, cabinetInsideMaterial, [0, -.02, -.82], .016),
+        box(.075, .3, 1.68, cabinetInsideMaterial, [-.91, .02, -.78], .016),
+        box(.075, .3, 1.68, cabinetInsideMaterial, [.91, .02, -.78], .016),
+        box(1.82, .055, 1.62, suedeMaterial, [0, -.14, -.78], .025),
+      );
+      for (const dividerX of [-.46, .46]) drawer.add(box(.035, .16, 1.45, suedeMaterial, [dividerX, -.02, -.78], .008));
+      if (index === 2) {
+        for (let i = 0; i < 5; i++) {
+          const bracelet = new THREE.Mesh(new THREE.TorusGeometry(.12 + i * .003, .018, 10, 24), i % 2 ? chromeMaterial : hardwareMaterial);
+          bracelet.rotation.x = Math.PI / 2;
+          bracelet.position.set(-.62 + i * .31, .02, -.72);
+          drawer.add(bracelet);
+        }
+      }
+
+      // Three-stage slides: cabinet rail, half-travel carrier, moving inner rail.
+      const slideCarriers = [];
+      for (const railSide of [-1, 1]) {
+        const railX = railSide * .98;
+        const fixed = box(.035, .08, 1.52, darkMetalMaterial, [x + railX, y, .2], .012);
+        island.add(fixed);
+        const carrier = box(.026, .055, 1.28, chromeMaterial, [railX, 0, -.72], .009);
+        drawer.add(carrier);
+        slideCarriers.push(carrier);
+        for (let bearing = 0; bearing < 5; bearing++) {
+          drawer.add(cylinder(.018, .025, chromeMaterial, [railX, .055, -1.22 + bearing * .28], 'x', 10));
+        }
+      }
+      island.add(drawer);
+      addInteractive(drawer, [front, handle], {
+        kind: 'drawer', label: `Open ${side < 0 ? 'left' : 'right'} drawer ${index + 1}`, speed: 6.2,
+        update: (value) => {
+          drawer.position.z = 1.06 + value * 1.48;
+          slideCarriers.forEach((rail) => { rail.position.z = -.72 - value * .24; });
+        },
+      });
+      return drawer;
+    }
+    for (const side of [-1, 1]) for (let index = 0; index < 3; index++) buildDrawer(index, side);
+
+    // Glass-top display: watches, trays, perfume bottle, and ties.
+    for (let i = 0; i < 3; i++) {
+      const watch = new THREE.Mesh(new THREE.TorusGeometry(.16, .027, 10, 28), i === 1 ? chromeMaterial : hardwareMaterial);
+      watch.rotation.x = Math.PI / 2;
+      watch.position.set(-1.35 + i * .52, 2.17, .9);
+      island.add(watch);
+      island.add(cylinder(.09, .026, blackMaterial, [-1.35 + i * .52, 2.18, .9], 'y', 22));
+    }
+    island.add(box(.7, .07, .52, suedeMaterial, [.66, 2.17, .78], .08));
+    island.add(cylinder(.12, .38, glassMaterial, [1.46, 2.34, .78], 'y', 20));
+    island.add(cylinder(.065, .1, hardwareMaterial, [1.46, 2.58, .78], 'y', 16));
+    cabinetry.add(island);
+
+    // A tufted bench near the entrance adds leather and stitched upholstery.
+    const bench = new THREE.Group();
+    bench.position.set(-3.9, 0, 4.35);
+    bench.add(box(2.4, .42, 1.0, leatherMaterial, [0, 1.05, 0], .18));
+    for (const x of [-.88, .88]) for (const z of [-.3, .3]) {
+      bench.add(cylinder(.055, .82, hardwareMaterial, [x, .5, z], 'y', 12));
+      bench.add(cylinder(.095, .04, hardwareMaterial, [x, .09, z], 'y', 12));
+    }
+    for (const x of [-.65, 0, .65]) {
+      bench.add(cylinder(.026, .025, hardwareMaterial, [x, 1.27, 0], 'y', 12));
+    }
+    decor.add(bench);
+
+    // -----------------------------------------------------------------------
+    // Hinged glass display cabinet with European hinges
+    // -----------------------------------------------------------------------
+    const glassCabinet = new THREE.Group();
+    glassCabinet.position.set(5.88, 0, 2.15);
+    const glassDoorPivot = new THREE.Group();
+    glassDoorPivot.position.set(-.51, 3.32, -.9);
+    const doorFrame = new THREE.Group();
+    doorFrame.position.x = .51;
+    const glassPanel = box(.92, 4.46, .045, glassMaterial, [0, 0, 0], .025, false);
+    doorFrame.add(glassPanel);
+    doorFrame.add(
+      box(1.02, .07, .075, hardwareMaterial, [0, 2.25, 0], .018),
+      box(1.02, .07, .075, hardwareMaterial, [0, -2.25, 0], .018),
+      box(.07, 4.5, .075, hardwareMaterial, [-.49, 0, 0], .018),
+      box(.07, 4.5, .075, hardwareMaterial, [.49, 0, 0], .018),
+      box(.055, .78, .09, hardwareMaterial, [.39, 0, .055], .025),
+    );
+    glassDoorPivot.add(doorFrame);
+    // True cup hinges, pins, plates, and articulated arms.
+    for (const y of [-1.55, 0, 1.55]) {
+      const cup = cylinder(.105, .045, chromeMaterial, [.08, y, -.06], 'z', 20);
+      const pin = cylinder(.038, .22, hardwareMaterial, [-.02, y, -.14], 'y', 14);
+      const arm = box(.32, .055, .07, chromeMaterial, [-.11, y, -.13], .02);
+      doorFrame.add(cup, pin, arm);
+      glassCabinet.add(box(.15, .16, .08, chromeMaterial, [-.52, 3.32 + y, -.98], .018));
+    }
+    glassCabinet.add(glassDoorPivot);
+    addInteractive(glassDoorPivot, [glassPanel, ...doorFrame.children.filter((child) => child !== glassPanel)], {
+      kind: 'door', label: 'Open glass display cabinet', speed: 4.8,
+      update: (value) => { glassDoorPivot.rotation.y = value * 1.58; },
+    });
+    cabinetry.add(glassCabinet);
+
+    // -----------------------------------------------------------------------
+    // Lightweight Verlet cloth and detailed garment construction
+    // -----------------------------------------------------------------------
+    class ClothSystem {
+      constructor(mesh, cols, rows, pinned, stiffness = 1) {
+        this.mesh = mesh;
+        this.cols = cols;
+        this.rows = rows;
+        this.geometry = mesh.geometry;
+        const source = this.geometry.attributes.position.array;
+        this.positions = new Float32Array(source);
+        this.previous = new Float32Array(source);
+        this.rest = new Float32Array(source);
+        this.pinned = new Set(pinned);
+        this.constraints = [];
+        this.stiffness = stiffness;
+        this.lastNormalFrame = 0;
+
+        const addConstraint = (a, b, factor = 1) => {
+          const ax = this.rest[a * 3], ay = this.rest[a * 3 + 1], az = this.rest[a * 3 + 2];
+          const bx = this.rest[b * 3], by = this.rest[b * 3 + 1], bz = this.rest[b * 3 + 2];
+          this.constraints.push([a, b, Math.hypot(bx - ax, by - ay, bz - az), factor]);
+        };
+        for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          if (x < cols - 1) addConstraint(i, i + 1);
+          if (y < rows - 1) addConstraint(i, i + cols);
+          if (x < cols - 1 && y < rows - 1) {
+            addConstraint(i, i + cols + 1, .72);
+            addConstraint(i + 1, i + cols, .72);
+          }
+          if (x < cols - 2) addConstraint(i, i + 2, .24);
+          if (y < rows - 2) addConstraint(i, i + cols * 2, .24);
+        }
+      }
+
+      simulate(dt, time) {
+        const capped = Math.min(dt, 1 / 28);
+        const damping = reducedMotion ? .78 : .986;
+        const windStrength = reducedMotion ? .00003 : .0015;
+        const count = this.positions.length / 3;
+        for (let i = 0; i < count; i++) {
+          const index = i * 3;
+          if (this.pinned.has(i)) {
+            this.positions[index] = this.rest[index];
+            this.positions[index + 1] = this.rest[index + 1];
+            this.positions[index + 2] = this.rest[index + 2];
+            this.previous[index] = this.rest[index];
+            this.previous[index + 1] = this.rest[index + 1];
+            this.previous[index + 2] = this.rest[index + 2];
+            continue;
+          }
+          const x = this.positions[index];
+          const y = this.positions[index + 1];
+          const z = this.positions[index + 2];
+          const vx = (x - this.previous[index]) * damping;
+          const vy = (y - this.previous[index + 1]) * damping;
+          const vz = (z - this.previous[index + 2]) * damping;
+          this.previous[index] = x;
+          this.previous[index + 1] = y;
+          this.previous[index + 2] = z;
+          this.positions[index] = x + vx;
+          this.positions[index + 1] = y + vy - 3.4 * capped * capped;
+          this.positions[index + 2] = z + vz + Math.sin(time * 1.35 + x * 4.2 - y * 1.7) * windStrength;
+        }
+
+        const iterations = isMobile ? 2 : 3;
+        for (let iteration = 0; iteration < iterations; iteration++) {
+          for (const [a, b, restLength, factor] of this.constraints) {
+            const ai = a * 3, bi = b * 3;
+            let dx = this.positions[bi] - this.positions[ai];
+            let dy = this.positions[bi + 1] - this.positions[ai + 1];
+            let dz = this.positions[bi + 2] - this.positions[ai + 2];
+            const distance = Math.max(.00001, Math.hypot(dx, dy, dz));
+            const correction = (distance - restLength) / distance * .5 * factor * this.stiffness;
+            dx *= correction; dy *= correction; dz *= correction;
+            if (!this.pinned.has(a)) {
+              this.positions[ai] += dx; this.positions[ai + 1] += dy; this.positions[ai + 2] += dz;
+            }
+            if (!this.pinned.has(b)) {
+              this.positions[bi] -= dx; this.positions[bi + 1] -= dy; this.positions[bi + 2] -= dz;
+            }
+          }
+        }
+
+        for (const pin of this.pinned) {
+          const index = pin * 3;
+          this.positions[index] = this.rest[index];
+          this.positions[index + 1] = this.rest[index + 1];
+          this.positions[index + 2] = this.rest[index + 2];
+        }
+        this.geometry.attributes.position.array.set(this.positions);
+        this.geometry.attributes.position.needsUpdate = true;
+        if (!isMobile || state.frame % 2 === 0) this.geometry.computeVertexNormals();
+      }
+    }
+
+    function fabricMaterial(color, roughness = .82) {
+      return new THREE.MeshPhysicalMaterial({
+        color,
+        roughness,
+        metalness: 0,
+        sheen: .55,
+        sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .3),
+        side: THREE.DoubleSide,
+        ...fabricMaps,
+        normalScale: new THREE.Vector2(.3, .3),
+        displacementScale: .006,
+        displacementBias: -.003,
+      });
+    }
+
+    function createClothPanel({ width, height, topWidth = width, bottomWidth = width, color, cols = 11, rows = 15, seed = 0 }) {
+      const random = mulberry32(400 + seed);
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+      for (let row = 0; row < rows; row++) {
+        const v = row / (rows - 1);
+        const rowWidth = THREE.MathUtils.lerp(topWidth, bottomWidth, v) * (1 - Math.sin(v * Math.PI) * .025);
+        for (let col = 0; col < cols; col++) {
+          const u = col / (cols - 1);
+          const x = (u - .5) * rowWidth;
+          const y = -v * height;
+          const edgeFade = Math.sin(u * Math.PI);
+          const z = Math.sin(u * Math.PI * 4 + v * 7 + seed) * .018 * edgeFade + (random() - .5) * .004;
+          positions.push(x, y, z);
+          uvs.push(u * 2, v * 3);
+        }
+      }
+      for (let row = 0; row < rows - 1; row++) for (let col = 0; col < cols - 1; col++) {
+        const a = row * cols + col;
+        const b = a + 1;
+        const c = a + cols;
+        const d = c + 1;
+        indices.push(a, c, b, b, c, d);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const mesh = finishMesh(new THREE.Mesh(geometry, fabricMaterial(color)), { cast: true, receive: true });
+      const pinned = Array.from({ length: cols }, (_, index) => index).filter((index) => index === 0 || index === cols - 1 || index % 2 === 0);
+      clothSystems.push(new ClothSystem(mesh, cols, rows, pinned, .94));
+      return mesh;
+    }
+
+    function createHanger(color = 0xb18b56) {
+      const group = new THREE.Group();
+      const material = color === 0xb18b56 ? hardwareMaterial : chromeMaterial;
+      group.add(tube([[-.48, -.2, 0], [0, .05, 0], [.48, -.2, 0]], .022, material, 16));
+      group.add(tube([[0, .05, 0], [0, .22, 0], [.09, .31, 0], [.17, .23, 0]], .018, material, 12));
+      return group;
+    }
+
+    function createSleeve(material, side, length = .72) {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.lineTo(side * .37, -.1);
+      shape.lineTo(side * .28, -length);
+      shape.lineTo(side * .08, -length + .02);
+      shape.lineTo(0, -.22);
+      shape.closePath();
+      const mesh = finishMesh(new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: .055, bevelEnabled: true, bevelSize: .018, bevelThickness: .012, bevelSegments: 2 }), material));
+      mesh.position.z = -.03;
+      return mesh;
+    }
+
+    function addGarment({ type, x, color, seed, bay = 'left' }) {
+      const group = new THREE.Group();
+      const z = -4.15 - (seed % 2) * .035;
+      group.position.set(x, 4.54, z);
+      group.rotation.y = (seed % 3 - 1) * .06;
+      const hanger = createHanger(seed % 2 ? 0xffffff : 0xb18b56);
+      hanger.position.y = .18;
+      group.add(hanger);
+      const material = fabricMaterial(color);
+
+      if (type === 'shirt' || type === 'jacket') {
+        const body = createClothPanel({ width: .88, topWidth: .66, bottomWidth: .83, height: type === 'jacket' ? 1.5 : 1.24, color, cols: 10, rows: 14, seed });
+        body.position.y = -.17;
+        group.add(body);
+        group.add(createSleeve(material, -1, type === 'jacket' ? 1.0 : .72));
+        group.add(createSleeve(material, 1, type === 'jacket' ? 1.0 : .72));
+        const collar = new THREE.Mesh(new THREE.TorusGeometry(.17, .035, 8, 20, Math.PI), material);
+        collar.rotation.z = Math.PI;
+        collar.scale.y = .55;
+        collar.position.set(0, -.2, .055);
+        group.add(collar);
+        if (type === 'jacket') {
+          const lapelMaterial = material.clone();
+          lapelMaterial.color.offsetHSL(0, 0, .06);
+          const lapelShape = new THREE.Shape();
+          lapelShape.moveTo(0, 0); lapelShape.lineTo(.24, -.22); lapelShape.lineTo(.08, -.7); lapelShape.lineTo(-.02, -.25); lapelShape.closePath();
+          const lapelA = new THREE.Mesh(new THREE.ShapeGeometry(lapelShape), lapelMaterial);
+          lapelA.position.set(.02, -.22, .07);
+          const lapelB = lapelA.clone(); lapelB.scale.x = -1;
+          group.add(lapelA, lapelB);
+          for (let y = -.72; y > -1.4; y -= .24) group.add(cylinder(.027, .02, hardwareMaterial, [.08, y, .08], 'z', 12));
+        } else {
+          for (let y = -.46; y > -1.2; y -= .19) group.add(cylinder(.018, .016, chromeMaterial, [0, y, .075], 'z', 10));
+        }
+      }
+
+      if (type === 'dress') {
+        const dress = createClothPanel({ width: 1.08, topWidth: .54, bottomWidth: 1.14, height: 2.42, color, cols: 13, rows: 20, seed });
+        dress.position.y = -.15;
+        group.add(dress);
+        group.add(createSleeve(material, -1, .48), createSleeve(material, 1, .48));
+        const belt = box(.68, .055, .06, hardwareMaterial, [0, -1.03, .065], .015);
+        group.add(belt);
+      }
+
+      if (type === 'pants') {
+        const waistband = box(.84, .15, .12, material, [0, -.2, 0], .035);
+        const leftLeg = createClothPanel({ width: .39, topWidth: .4, bottomWidth: .29, height: 1.75, color, cols: 7, rows: 16, seed });
+        const rightLeg = createClothPanel({ width: .39, topWidth: .4, bottomWidth: .29, height: 1.75, color, cols: 7, rows: 16, seed: seed + 20 });
+        leftLeg.position.set(-.21, -.25, 0);
+        rightLeg.position.set(.21, -.25, 0);
+        group.add(waistband, leftLeg, rightLeg);
+        for (const beltX of [-.32, -.12, .12, .32]) group.add(box(.035, .2, .035, material, [beltX, -.2, .075], .008));
+      }
+      decor.add(group);
+      return group;
+    }
+
+    const garmentLayout = [
+      ['shirt', -5.62, 0xede7d9, 1], ['jacket', -5.08, 0x24303b, 2], ['shirt', -4.52, 0x8f4c3f, 3],
+      ['pants', -3.96, 0x403d3a, 4], ['dress', -3.43, 0x5b2430, 5],
+      ['jacket', 3.45, 0x3d4c3e, 8], ['shirt', 4.05, 0xd6c6a7, 9], ['dress', 4.61, 0x1d2d3f, 10],
+      ['pants', 5.17, 0x766858, 11], ['shirt', 5.7, 0xc6b9aa, 12],
+    ];
+    garmentLayout.forEach(([type, x, color, seed]) => addGarment({ type, x, color, seed }));
+
+    // -----------------------------------------------------------------------
+    // Folded clothes, shoes, bags, and small accessories
+    // -----------------------------------------------------------------------
+    function addFoldedStack(position, colors, rotationY = 0, scale = 1) {
+      const stack = new THREE.Group();
+      stack.position.set(...position);
+      stack.rotation.y = rotationY;
+      colors.forEach((color, index) => {
+        const material = fabricMaterial(color, .88);
+        const fold = box(.72 * scale, .16 * scale, .52 * scale, material, [(index % 2 - .5) * .025, index * .155 * scale, 0], .065);
+        fold.rotation.y = (index % 2 ? 1 : -1) * .025;
+        stack.add(fold);
+        stack.add(box(.03, .08 * scale, .45 * scale, material, [.2 * scale, index * .155 * scale, .025], .012));
+      });
+      decor.add(stack);
+      return stack;
+    }
+
+    addFoldedStack([-5.82, 1.42, -3.7], [0x796355, 0xd4c4a7, 0x384953]);
+    addFoldedStack([-5.82, 3.53, -1.8], [0xe4dfd2, 0x6f7b72, 0x413a36]);
+    addFoldedStack([-5.82, 4.61, .45], [0x7d3340, 0xc6bba8, 0x3a4657, 0xd9d4c8], Math.PI / 2, .9);
+    addFoldedStack([5.83, 4.62, 2.95], [0x3d4b5c, 0x9b8570, 0xe2ddd2], Math.PI / 2, .92);
+    addFoldedStack([5.83, 2.6, 4.05], [0xb7a88e, 0x5e675f, 0x353332], Math.PI / 2, .9);
+
+    const shoeToeGeometry = new THREE.SphereGeometry(.27, 18, 12);
+    function createShoe({ color = 0x252525, accent = 0xe2e2dd, heel = false } = {}) {
+      const group = new THREE.Group();
+      const upperMaterial = new THREE.MeshPhysicalMaterial({ color, roughness: heel ? .32 : .5, clearcoat: heel ? .5 : .08, ...leatherMaps, normalScale: new THREE.Vector2(.2, .2) });
+      const soleMaterial = new THREE.MeshStandardMaterial({ color: accent, roughness: .58 });
+      const sole = box(.39, .08, .93, soleMaterial, [0, .07, .03], .09);
+      sole.scale.x = .84;
+      const toe = new THREE.Mesh(shoeToeGeometry, upperMaterial);
+      toe.scale.set(.72, .45, 1.08);
+      toe.position.set(0, .19, -.27);
+      const quarter = box(.34, .34, .45, upperMaterial, [0, .24, .25], .11);
+      quarter.rotation.x = -.12;
+      group.add(sole, finishMesh(toe), quarter);
+      if (heel) {
+        group.add(cylinder(.055, .38, hardwareMaterial, [0, .2, .39], 'y', 12));
+        sole.rotation.x = -.14;
+        toe.position.y = .13;
+      } else {
+        const tongue = box(.22, .035, .42, upperMaterial, [0, .39, .03], .035);
+        tongue.rotation.x = -.52;
+        group.add(tongue);
+        for (let row = 0; row < 4; row++) {
+          const lace = tube([[-.12, .38 + row * .015, -.08 + row * .09], [0, .43 + row * .015, -.04 + row * .09], [.12, .38 + row * .015, -.08 + row * .09]], .009, accent === 0xe2e2dd ? chromeMaterial : hardwareMaterial, 8);
+          group.add(lace);
+        }
+      }
+      return group;
+    }
+
+    const shoeData = [
+      [-5.78, 1.26, 1.72, 1.55, 0x242528, 0xe3e0d8, false], [-5.78, 2.32, 1.72, 1.55, 0x8b5c3d, 0x302620, false],
+      [-5.78, 3.35, 1.72, 1.55, 0x151515, 0xa98452, true], [-5.78, 4.17, 1.72, 1.55, 0xb9ad98, 0xf3eee5, false],
+      [5.8, -4.0, 1.22, -1.5, 0x2d3745, 0xe4e2dd, false], [5.8, -3.42, 2.3, -1.5, 0x6c3e2e, 0x2a211d, false],
+      [5.8, -2.82, 3.36, -1.5, 0x171717, 0xc5a36f, true], [5.8, -2.15, 4.4, -1.5, 0xddd4c3, 0xf2efe9, false],
+      [5.8, .15, 1.2, -1.5, 0x343132, 0xd5d0c8, false], [5.8, .68, 2.27, -1.5, 0x7a1f25, 0x2f2423, true],
+      [5.8, 1.22, 3.32, -1.5, 0x294139, 0xe0ddd6, false],
+    ];
+    for (const [x, z, y, rot, color, accent, heel] of shoeData) {
+      const pair = new THREE.Group();
+      pair.position.set(x, y, z);
+      pair.rotation.y = rot;
+      const left = createShoe({ color, accent, heel });
+      left.position.x = -.24;
+      const right = createShoe({ color, accent, heel });
+      right.position.x = .24;
+      right.position.z = .08;
+      pair.add(left, right);
+      decor.add(pair);
+    }
+
+    // Bags on illuminated shelves with handles, clasps, and seams.
+    function createBag(color, metal = hardwareMaterial) {
+      const group = new THREE.Group();
+      const material = new THREE.MeshPhysicalMaterial({ color, roughness: .38, clearcoat: .2, ...leatherMaps, normalScale: new THREE.Vector2(.26, .26) });
+      group.add(box(.86, .64, .3, material, [0, 0, 0], .11));
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(.24, .025, 10, 24, Math.PI), metal);
+      handle.rotation.z = Math.PI;
+      handle.scale.y = 1.3;
+      handle.position.set(0, .28, 0);
+      group.add(handle);
+      group.add(box(.14, .12, .035, metal, [0, .02, .17], .025));
+      group.add(tube([[-.34, -.2, .16], [0, -.23, .16], [.34, -.2, .16]], .008, metal, 12));
+      return group;
+    }
+    const bagA = createBag(0x533027); bagA.position.set(-5.78, 3.48, 3.55); bagA.rotation.y = Math.PI / 2; decor.add(bagA);
+    const bagB = createBag(0x1d2a34, chromeMaterial); bagB.position.set(5.78, 4.34, .35); bagB.rotation.y = -Math.PI / 2; decor.add(bagB);
+
+    // -----------------------------------------------------------------------
+    // Mirror, ceiling lights, shelf lighting, wiring, and physical dimmer
+    // -----------------------------------------------------------------------
+    loaderDetail.textContent = 'Calibrating reflections and lighting';
+    const mirrorGeometry = new THREE.PlaneGeometry(2.1, 4.5);
+    const mirror = new Reflector(mirrorGeometry, {
+      clipBias: .003,
+      textureWidth: isMobile ? 384 : 768,
+      textureHeight: isMobile ? 768 : 1024,
+      color: 0x90989a,
+      multisample: isMobile ? 0 : 4,
+    });
+    mirror.position.set(-6.395, 3.35, 3.56);
+    mirror.rotation.y = Math.PI / 2;
+    mirror.receiveShadow = true;
+    // Reflector renders the scene from a second camera. Cache that expensive
+    // pass for a few frames; the reflection remains fluid while mobile GPUs
+    // avoid rendering the entire wardrobe multiple times per display frame.
+    const renderMirror = mirror.onBeforeRender.bind(mirror);
+    mirror.userData.lastReflectionFrame = -1;
+    mirror.onBeforeRender = (...args) => {
+      const interval = isMobile ? 6 : 3;
+      if ((visualCheck && state.ready) || mirror.userData.lastReflectionFrame === state.frame || (state.ready && state.frame % interval !== 0)) return;
+      mirror.userData.lastReflectionFrame = state.frame;
+      renderMirror(...args);
+    };
+    architecture.add(mirror);
+    architecture.add(box(.1, 4.72, 2.34, hardwareMaterial, [-6.43, 3.35, 3.56], .04));
+    // Re-add mirror slightly inward so the frame remains behind it.
+    mirror.position.x = -6.365;
+
+    const hemi = new THREE.HemisphereLight(0xdce7ee, 0x3d3028, .42);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffe3bd, .72);
+    key.position.set(4.5, 7.4, 6.2);
+    key.castShadow = true;
+    key.shadow.mapSize.set(isMobile ? 512 : 1024, isMobile ? 512 : 1024);
+    key.shadow.camera.left = -8; key.shadow.camera.right = 8; key.shadow.camera.top = 8; key.shadow.camera.bottom = -7;
+    key.shadow.camera.near = .5; key.shadow.camera.far = 24;
+    key.shadow.bias = -.00015; key.shadow.normalBias = .035;
+    key.userData.baseIntensity = .72;
+    controlledLights.push(key);
+    scene.add(key);
+
+    const spotPositions = [
+      [-4.4, 6.82, -2.7, 0xffd39a], [0, 6.82, -2.8, 0xffe1b0], [4.4, 6.82, -2.7, 0xffd39a],
+      [-3.4, 6.82, 2.4, 0xb7ddff], [0, 6.82, 2.4, 0xffd09a], [3.4, 6.82, 2.4, 0xb7ddff],
+    ];
+    spotPositions.forEach(([x, y, z, color], index) => {
+      const fixture = new THREE.Group();
+      fixture.position.set(x, y, z);
+      fixture.add(cylinder(.13, .09, darkMetalMaterial, [0, 0, 0], 'y', 24));
+      const lensMaterial = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.4, toneMapped: false });
+      lensMaterial.userData.baseIntensity = 2.4;
+      ledMaterials.push(lensMaterial);
+      fixture.add(cylinder(.095, .015, lensMaterial, [0, -.055, 0], 'y', 24));
+      electrical.add(fixture);
+      const spot = new THREE.SpotLight(color, index < 3 ? 27 : 19, 13, .48, .72, 1.7);
+      spot.position.set(x, y - .04, z);
+      spot.target.position.set(x * .55, 0, z - .8);
+      spot.castShadow = index < (isMobile ? 2 : 4);
+      if (spot.castShadow) {
+        spot.shadow.mapSize.set(isMobile ? 384 : 768, isMobile ? 384 : 768);
+        spot.shadow.bias = -.0002;
+        spot.shadow.normalBias = .035;
+        spot.shadow.camera.near = .5;
+        spot.shadow.camera.far = 14;
+      }
+      spot.userData.baseIntensity = index < 3 ? 27 : 19;
+      controlledLights.push(spot);
+      scene.add(spot, spot.target);
+    });
+
+    // Warm back-wall channels and cool toe-kick LEDs.
+    makeLedStrip(electrical, { position: [-4.55, 6.12, -4.3], size: [2.75, .035, .045], color: 0xffbd70, intensity: 2.55 });
+    makeLedStrip(electrical, { position: [4.55, 6.12, -4.3], size: [2.75, .035, .045], color: 0xffbd70, intensity: 2.55 });
+    makeLedStrip(electrical, { position: [0, .28, -4.24], size: [12.1, .04, .045], color: 0x8bdcff, intensity: 1.6, area: false });
+    makeLedStrip(electrical, { position: [0, .2, .9], size: [4.15, .04, .045], color: 0x8bdcff, intensity: 1.55, area: false });
+
+    // Exposed low-voltage wiring route, clips, transformer, and glowing lead.
+    electrical.add(tube([[-6.0, 6.58, 4.3], [-6.0, 6.58, -4.8], [0, 6.58, -5.18], [5.9, 6.58, -4.8]], .026, cableMaterial, 64));
+    electrical.add(tube([[-5.94, 6.55, 4.25], [-5.94, 6.55, -1.0], [-4.65, 6.55, -4.73]], .009, redWireMaterial, 40));
+    electrical.add(tube([[5.94, 6.55, 4.1], [5.94, 6.55, .4], [4.65, 6.55, -4.73]], .009, cyanWireMaterial, 40));
+    for (let z = -4.2; z < 4.2; z += .62) {
+      electrical.add(box(.08, .055, .025, darkMetalMaterial, [-6.0, 6.56, z], .008));
+    }
+    const transformer = box(.52, .34, .18, darkMetalMaterial, [-6.2, 6.18, 4.35], .04);
+    electrical.add(transformer);
+    addLabelPlate(electrical, .27, [-6.08, 6.18, 4.46], hardwareMaterial);
+
+    // Physical dimmer switch on the right wall is clickable and mirrors the HTML slider.
+    const switchGroup = new THREE.Group();
+    switchGroup.position.set(6.39, 2.65, 4.4);
+    switchGroup.rotation.y = -Math.PI / 2;
+    const switchPlate = box(.56, .82, .08, new THREE.MeshStandardMaterial({ color: 0xd7d2c8, roughness: .4 }), [0, 0, 0], .075);
+    const switchKnob = cylinder(.13, .1, hardwareMaterial, [0, .13, .08], 'z', 24);
+    const switchTrack = box(.08, .3, .03, darkMetalMaterial, [0, -.18, .07], .03);
+    switchGroup.add(switchPlate, switchKnob, switchTrack);
+    electrical.add(switchGroup);
+    addInteractive(switchGroup, [switchPlate, switchKnob], {
+      kind: 'dimmer', label: 'Cycle integrated lighting', speed: 7,
+      update: (value) => { switchKnob.rotation.z = value * Math.PI * 1.5; },
+    });
+
+    // -----------------------------------------------------------------------
+    // UI, raycast interaction, animation, and responsive lifecycle
+    // -----------------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    raycaster.params.Line.threshold = .08;
+
+    function showToast(message) {
+      clearTimeout(state.toastTimer);
+      toast.textContent = message;
+      toast.classList.add('is-visible');
+      state.toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1900);
+    }
+
+    function setDimmer(value, announce = false) {
+      state.dimmer = THREE.MathUtils.clamp(value, .08, 1);
+      const percent = Math.round(state.dimmer * 100);
+      const input = document.querySelector('#dimmer');
+      input.value = percent;
+      input.style.setProperty('--range', `${percent}%`);
+      document.querySelector('#dimmer-value').textContent = `${percent}%`;
+      for (const light of controlledLights) light.intensity = light.userData.baseIntensity * state.dimmer;
+      for (const material of ledMaterials) material.emissiveIntensity = material.userData.baseIntensity * (.18 + state.dimmer * .92);
+      bloomPass.strength = (isMobile ? .24 : .34) + state.dimmer * (isMobile ? .12 : .22);
+      renderer.toneMappingExposure = (themes[state.theme]?.exposure || .96) * (.7 + state.dimmer * .2);
+      if (announce) showToast(`Integrated lighting · ${percent}%`);
+    }
+
+    const themes = {
+      walnut: {
+        name: 'Walnut / 01', metric: 'Oiled walnut', wood: woodMaps.walnut, cabinet: 0xffffff, inside: 0xbfb4a7,
+        hardware: 0xb18b56, walls: 0xc6c0b6, background: 0x151311, fog: 0x151311, rug: 0x5e5a55, exposure: .96,
+      },
+      oak: {
+        name: 'Oak / 02', metric: 'Natural white oak', wood: woodMaps.oak, cabinet: 0xffffff, inside: 0xd8cab2,
+        hardware: 0xbfc4c2, walls: 0xd5d0c6, background: 0x25221e, fog: 0x25221e, rug: 0x79736b, exposure: 1.01,
+      },
+      white: {
+        name: 'White / 03', metric: 'Satin lacquer', wood: woodMaps.white, cabinet: 0xffffff, inside: 0xffffff,
+        hardware: 0x252728, walls: 0xd9d7d1, background: 0x302f2d, fog: 0x302f2d, rug: 0x777b7d, exposure: 1.06,
+      },
+    };
+
+    function applyTheme(name, announce = true) {
+      const theme = themes[name];
+      state.theme = name;
+      cabinetMaterial.map = theme.wood.map;
+      cabinetMaterial.normalMap = theme.wood.normalMap;
+      cabinetMaterial.roughnessMap = theme.wood.roughnessMap;
+      cabinetMaterial.displacementMap = theme.wood.displacementMap;
+      cabinetMaterial.color.set(theme.cabinet);
+      cabinetMaterial.roughness = name === 'white' ? .37 : .48;
+      cabinetMaterial.normalScale.setScalar(name === 'white' ? .11 : .34);
+      cabinetMaterial.displacementScale = name === 'white' ? .0015 : .006;
+      cabinetMaterial.displacementBias = -cabinetMaterial.displacementScale * .5;
+      cabinetMaterial.needsUpdate = true;
+      cabinetInsideMaterial.map = theme.wood.map;
+      cabinetInsideMaterial.normalMap = theme.wood.normalMap;
+      cabinetInsideMaterial.roughnessMap = theme.wood.roughnessMap;
+      cabinetInsideMaterial.displacementMap = theme.wood.displacementMap;
+      cabinetInsideMaterial.color.set(theme.inside);
+      cabinetInsideMaterial.displacementScale = name === 'white' ? .001 : .004;
+      cabinetInsideMaterial.displacementBias = -cabinetInsideMaterial.displacementScale * .5;
+      cabinetInsideMaterial.needsUpdate = true;
+      hardwareMaterial.color.set(theme.hardware);
+      hardwareMaterial.roughness = name === 'white' ? .31 : .24;
+      wallMaterial.color.set(theme.walls);
+      ceilingMaterial.color.copy(wallMaterial.color).multiplyScalar(.94);
+      rugMaterial.color.set(theme.rug);
+      scene.background.set(theme.background);
+      scene.fog.color.set(theme.fog);
+      renderer.toneMappingExposure = theme.exposure * (.7 + state.dimmer * .2);
+      document.querySelector('#theme-value').textContent = theme.name;
+      document.querySelector('#metric-finish').textContent = theme.metric;
+      document.querySelectorAll('.theme').forEach((button) => button.setAttribute('aria-pressed', button.dataset.theme === name ? 'true' : 'false'));
+      if (announce) showToast(`${theme.metric} finish applied`);
+    }
+
+    function findInteractive(event) {
+      const rect = canvas.getBoundingClientRect();
+      state.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      state.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(state.pointer, camera);
+      const hits = raycaster.intersectObjects(interactables, false);
+      return hits.length ? hits[0].object.userData.interactiveRoot : null;
+    }
+
+    function setHovered(root, event) {
+      if (root === state.hovered) {
+        if (root && event) {
+          tooltip.style.left = `${event.clientX}px`;
+          tooltip.style.top = `${event.clientY}px`;
+        }
+        return;
+      }
+      state.hovered = root;
+      outlinePass.selectedObjects = root ? [root] : [];
+      canvas.classList.toggle('is-hovering', Boolean(root));
+      if (root) {
+        tooltip.textContent = root.userData.action.label;
+        tooltip.style.left = `${event.clientX}px`;
+        tooltip.style.top = `${event.clientY}px`;
+        tooltip.classList.add('is-visible');
+      } else {
+        tooltip.classList.remove('is-visible');
+      }
+    }
+
+    function syncSceneActionButtons() {
+      document.querySelectorAll('[data-scene-action]').forEach((button) => {
+        const kind = button.dataset.sceneAction;
+        const isOpen = actions.some((root) => root.userData.action.kind === kind && root.userData.action.target > .5);
+        button.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+      });
+    }
+
+    function toggleActionKind(kind) {
+      const matching = actions.filter((root) => root.userData.action.kind === kind);
+      if (!matching.length) return;
+      const target = matching.some((root) => root.userData.action.target < .5) ? 1 : 0;
+      matching.forEach((root) => { root.userData.action.target = target; });
+      syncSceneActionButtons();
+      showToast(`${target ? 'Opening' : 'Closing'} ${kind === 'safe' ? 'secure vault' : kind === 'door' ? 'display cabinet' : 'drawers'}`);
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      state.pointerDown = true;
+      state.pressedAt.set(event.clientX, event.clientY);
+      state.dragging = false;
+      tooltip.classList.remove('is-visible');
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      state.pointerClient.set(event.clientX, event.clientY);
+      if (state.pointerDown && state.pressedAt.distanceTo(state.pointerClient) > 7) state.dragging = true;
+      if (event.pointerType !== 'touch' && !state.pointerDown) setHovered(findInteractive(event), event);
+    });
+
+    canvas.addEventListener('pointerup', (event) => {
+      const moved = state.dragging || state.pressedAt.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8;
+      state.pointerDown = false;
+      state.dragging = false;
+      if (moved) return;
+      const root = findInteractive(event);
+      if (!root) return;
+      const action = root.userData.action;
+      if (action.kind === 'dimmer') {
+        const next = state.dimmer > .82 ? .32 : state.dimmer > .52 ? 1 : .7;
+        action.target = next;
+        setDimmer(next, true);
+      } else {
+        action.target = action.target > .5 ? 0 : 1;
+        syncSceneActionButtons();
+        const verb = action.target ? 'Opening' : 'Closing';
+        showToast(`${verb} ${action.kind === 'safe' ? 'secure vault' : action.kind}`);
+      }
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      state.pointerDown = false;
+      state.dragging = false;
+      setHovered(null);
+    });
+    canvas.addEventListener('pointerleave', () => setHovered(null));
+
+    document.querySelectorAll('.theme').forEach((button) => {
+      button.addEventListener('click', () => applyTheme(button.dataset.theme));
+    });
+
+    document.querySelectorAll('[data-scene-action]').forEach((button) => {
+      button.addEventListener('click', () => toggleActionKind(button.dataset.sceneAction));
+    });
+
+    const dimmerInput = document.querySelector('#dimmer');
+    dimmerInput.addEventListener('input', () => setDimmer(Number(dimmerInput.value) / 100));
+    dimmerInput.addEventListener('change', () => showToast(`Integrated lighting · ${dimmerInput.value}%`));
+
+    const panel = document.querySelector('#control-panel');
+    const panelToggle = document.querySelector('#panel-toggle');
+    if (isMobile) {
+      panel.classList.add('is-collapsed');
+      panelToggle.setAttribute('aria-expanded', 'false');
+      panelToggle.setAttribute('aria-label', 'Expand controls');
+    }
+    panelToggle.addEventListener('click', () => {
+      const collapsed = panel.classList.toggle('is-collapsed');
+      panelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      panelToggle.setAttribute('aria-label', collapsed ? 'Expand controls' : 'Collapse controls');
+    });
+
+    addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        actions.forEach((root) => { if (root.userData.action.kind !== 'dimmer') root.userData.action.target = 0; });
+        syncSceneActionButtons();
+        showToast('All cabinetry closed');
+      }
+      if (event.key.toLowerCase() === 'l') setDimmer(state.dimmer > .5 ? .18 : .78, true);
+    });
+
+    function resize() {
+      const width = innerWidth;
+      const height = innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.2 : 1.55));
+      renderer.setSize(width, height, false);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(width, height);
+    }
+    addEventListener('resize', resize, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+      state.visible = !document.hidden;
+      if (state.visible) clock.start();
+    });
+
+    function updateActions(dt) {
+      let moving = false;
+      for (const root of actions) {
+        const action = root.userData.action;
+        const goal = action.kind === 'dimmer' ? state.dimmer : action.target;
+        action.value = THREE.MathUtils.damp(action.value, goal, action.speed, dt);
+        if (Math.abs(action.value - goal) > .001) moving = true;
+        action.update(action.value);
+      }
+      return moving;
+    }
+
+    const clock = new THREE.Clock();
+    setDimmer(.78);
+    applyTheme('walnut', false);
+
+    // An initial staged reveal frames the full room without hiding interaction.
+    if (!reducedMotion) {
+      const startPosition = camera.position.clone().multiplyScalar(1.08).add(new THREE.Vector3(0, .5, 1.3));
+      camera.position.copy(startPosition);
+      controls.update();
+    }
+
+    let lastMobileRender = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      if (!state.visible) return;
+      const dt = Math.min(clock.getDelta(), .05);
+      const time = clock.elapsedTime;
+      if (isMobile && time - lastMobileRender < 1 / 30) return;
+      if (isMobile) lastMobileRender = time;
+      state.frame++;
+      controls.update();
+      const moving = updateActions(dt);
+      if (!isMobile || state.frame % 2 === 0) {
+        for (const cloth of clothSystems) cloth.simulate(dt * (isMobile ? 1.8 : 1), time);
+      }
+      cyanWireMaterial.emissiveIntensity = (.9 + Math.sin(time * 2.1) * .22) * state.dimmer;
+      redWireMaterial.emissiveIntensity = (.36 + Math.sin(time * 1.4 + 1) * .1) * state.dimmer;
+      if (moving) renderer.shadowMap.needsUpdate = true;
+      composer.render(dt);
+    }
+
+    // Expose a tiny read-only diagnostic surface only for automated visual QA.
+    if (visualCheck) {
+      window.__CLOSET_DEBUG__ = {
+        get ready() { return state.ready; },
+        get interactables() { return interactables.length; },
+        get garments() { return clothSystems.length; },
+        get actionCount() { return actions.length; },
+        get theme() { return state.theme; },
+        get dimmer() { return state.dimmer; },
+        toggle(kind) {
+          const root = actions.find((candidate) => candidate.userData.action.kind === kind);
+          if (!root || kind === 'dimmer') return false;
+          root.userData.action.target = root.userData.action.target > .5 ? 0 : 1;
+          return true;
+        },
+        action(kind) {
+          const root = actions.find((candidate) => candidate.userData.action.kind === kind);
+          return root ? { value: root.userData.action.value, target: root.userData.action.target } : null;
+        },
+        renderer,
+      };
+    }
+
+    // Render a fast direct preview before removing the loader. The following
+    // animation frame upgrades it to the full SSAO/bloom/SMAA pipeline.
+    renderer.render(scene, camera);
+    state.ready = true;
+    document.documentElement.dataset.appReady = 'true';
+    if (visualCheck) {
+      const panelState = document.querySelector('#control-panel').classList.contains('is-collapsed') ? 'collapsed' : 'open';
+      document.title = `READY · ${interactables.length} hits · ${clothSystems.length} cloth · ${document.body.scrollWidth}/${innerWidth} · ${panelState}`;
+    }
+    requestAnimationFrame(() => {
+      loading.classList.add('is-done');
+      showToast(isMobile ? 'Drag to explore · Tap furniture to open' : 'Select highlighted cabinetry to interact');
+    });
+    if (visualCheck && query.has('self-test')) {
+      setTimeout(() => {
+        applyTheme('oak', false);
+        setDimmer(.64);
+        const drawer = actions.find((root) => root.userData.action.kind === 'drawer');
+        if (drawer) drawer.userData.action.target = 1;
+        setTimeout(() => {
+          const passed = state.theme === 'oak'
+            && Math.abs(state.dimmer - .64) < .001
+            && drawer?.userData.action.value > .05
+            && document.body.scrollWidth <= innerWidth + 1;
+          document.title = `${passed ? 'PASS' : 'FAIL'} · theme=${state.theme} · light=${state.dimmer.toFixed(2)} · drawer=${drawer?.userData.action.value.toFixed(2) || 'missing'} · width=${document.body.scrollWidth}/${innerWidth}`;
+        }, 900);
+      }, 250);
+    }
+    requestAnimationFrame(animate);
+  </script>
+
+  <script>
+    if (new URLSearchParams(location.search).has('visual-check')) document.title = 'BOOTING · Atelier Wardrobe';
+    window.addEventListener('error', (event) => {
+      if (!document.documentElement.dataset.appReady) {
+        const loading = document.querySelector('#loading');
+        loading?.classList.add('has-error');
+        document.title = `ERROR · ${event.message || 'initialization failed'}`;
+        console.error('Wardrobe renderer failed to initialize:', event.error || event.message);
+      }
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      if (!document.documentElement.dataset.appReady) document.querySelector('#loading')?.classList.add('has-error');
+      if (!document.documentElement.dataset.appReady) document.title = `ERROR · ${String(event.reason || 'promise rejected')}`;
+      console.error('Wardrobe renderer rejected a task:', event.reason);
+    });
+  </script>
+</body>
+</html>
